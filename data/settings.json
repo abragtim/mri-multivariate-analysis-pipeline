@@ -1,0 +1,4 @@
+{
+  "metrics": ["dmean", "fa", "kmean", "kfa"],
+  "correlation_r_significant_threshold": 0.1
+}
