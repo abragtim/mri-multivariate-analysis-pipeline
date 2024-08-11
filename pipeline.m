@@ -4,8 +4,7 @@ settings = readjson("data/settings.json");
 
 patients = {};
 patientsFolders = dir('data/');
-patientsFolders = patientsFolders(~strcmp({patientsFolders.name}, '.') ...
-    & ~strcmp({patientsFolders.name}, '..') ...
+patientsFolders = patientsFolders(~startsWith({patientsFolders.name}, '.') ...
     & ~strcmp({patientsFolders.name}, 'settings.json') ...
     & ~strcmp({patientsFolders.name}, 'example'));
 patientsFoldersCount = length(patientsFolders);
@@ -144,9 +143,37 @@ for i = 1:length(patients)
     ccaMeanPerEpitypeMetric = ccaMeanResultPerEpitype(patient.Epitype)...
         .calculateCombinedMetric(patient.MetricsMNI, patient.BrainmaskSegmentationMNI, ['ccaMean', '_', patient.Epitype]);
     ccaMeanPerEpitypeMetric.equalize(patient.BrainmaskSegmentationMNI)
+
+    patient.MetricsMNI = [patient.MetricsMNI(:)', ...
+        {ccaMaxCorrMetric}, {ccaMeanMetric}, {ccaMeanPerEpitypeMetric}];
+    patients{i} = patient;  % save changes
 end
 
 %% Univariate analysis
-% todo
+univariateAnalysisTable = table();
+for i = 1:length(patients)
+    patient = patients{i};
+
+    brainmaskSegmentation = logical(patient.BrainmaskSegmentationMNI.get().img);
+    lesionSegmentation = logical(patient.LesionSegmentationMNI.get().img);
+    contralateralSegmentation = logical(patient.ContralateralHealthySegmentationMNI.get().img);
+
+    for j = 1:length(patient.MetricsMNI)
+        metric = patient.MetricsMNI{j};
+        [meanLesion, stdLesion, medianLesion, ...
+            meanHealthy, stdHealthy, medianHealthy, ...
+            pval, zval, correlationR] = calculateUnivariateStatistics( ...
+            metric, lesionSegmentation & brainmaskSegmentation, ...
+            contralateralSegmentation & brainmaskSegmentation);
+
+        newRow = table(string(patient.Name), string(patient.Epitype), ...
+            string(metric.Name), meanLesion, stdLesion, medianLesion, ...
+            meanHealthy, stdHealthy, medianHealthy, pval, zval, correlationR, ...
+            'VariableNames', {'Patient', 'Epitype', 'Metric', 'MeanLesion', 'StdLesion', 'MedianLesion', ...
+            'MeanHealthy', 'StdHealthy', 'MedianHealthy', 'PValue', 'ZValue', 'CorrelationR'});
+        univariateAnalysisTable = [univariateAnalysisTable; newRow];
+    end
+end
+disp(univariateAnalysisTable)
 
 fprintf('Completed successfully!\n')
