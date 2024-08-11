@@ -27,7 +27,7 @@ function [meanLesion, stdLesion, medianLesion, ...
         mkdir(resultsFolder)
     end
     hold off;
-    savefig(fig, [resultsFolder, '/', metric.Name, '.fig'])
+    savefig(fig, [resultsFolder, '/hist_', metric.Name, '.fig'])
     close(fig);
 
     %% single-value metrics
