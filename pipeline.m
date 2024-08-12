@@ -89,7 +89,13 @@ for i = 1:length(patients)
     patients{i} = patient;  % save changes
 end
 
+%% Generate results folder
+if(~exist('./results', 'dir'))
+    mkdir('results')
+end
+
 %% Multivariate analysis with CCA
+multivariateCoeffsTable = table();
 for i = 1:length(patients)
     patient = patients{i};
 
@@ -99,9 +105,10 @@ for i = 1:length(patients)
 
     dataForCCA = [];
     for j = 1:length(patient.MetricsMNI)
-        metric = patient.MetricsMNI{j}.get().img;
-        lesioned = metric(lesionSegment);
-        healthy = metric(contralateralSegment);
+        metric = patient.MetricsMNI{j};
+        metricImg = metric.get().img;
+        lesioned = metricImg(lesionSegment);
+        healthy = metricImg(contralateralSegment);
         dataForCCA = [dataForCCA, [lesioned; healthy]];
     end
     labelsForCCA = logical([ones(size(lesioned)); zeros(size(healthy))]);
@@ -111,7 +118,29 @@ for i = 1:length(patients)
 
     patient.ContralateralCCAResult = ccaResult(coeffs, correlation_r);
     patients{i} = patient;  % save changes
+
+
+    % visualize results
+    resultsFolder = [metric.PathFolder, '/results'];
+    if(~exist(resultsFolder, 'dir'))
+        mkdir(resultsFolder)
+    end
+
+    metricNames = cellfun(@(m) ['coeff_', m.Name], patient.MetricsMNI, 'UniformOutput', false);
+    newRow = cell2table([{string(patient.Name)}, num2cell(coeffs)', num2cell(correlation_r)'], ...
+                   'VariableNames', [{'Patient'}, metricNames', {'CorrelationR'}]);
+    multivariateCoeffsTable = [multivariateCoeffsTable; newRow];
+
+    fig = figure('Visible','on');
+    spider_plot(coeffs', 'AxesLimits',...
+        [min(coeffs) .* ones(size(coeffs))'; max(coeffs) .* ones(size(coeffs))'], ...
+        'AxesLabels', cellfun(@(name) strrep(name, '_', ' '), metricNames,...
+        'UniformOutput', false))
+    title(['Contralateral CCA ', patient.Name])
+    savefig(fig, [resultsFolder, '/spider_plot_cca_coeffs.fig'])
 end
+disp(multivariateCoeffsTable)
+save('results/multivariateCoeffsTable.mat', 'multivariateCoeffsTable');
 
 %% Calculate and generate new CCA metrics
 ccaMeanResult = calculateCCAmeanResult(patients, settings.correlation_r_significant_threshold);
@@ -180,6 +209,7 @@ for i = 1:length(patients)
     end
 end
 disp(univariateAnalysisTable)
+save('results/univariateAnalysisTable.mat', 'univariateAnalysisTable');
 
 % visualize
 function [] = saveBoxchart(metrics, values, epitypes, label)
@@ -188,9 +218,6 @@ function [] = saveBoxchart(metrics, values, epitypes, label)
     boxchart(categorical(strrep(metrics, '_', ' ')), values, ...
         'GroupByColor', epitypes);
     ylabel(label)
-    if(~exist('./results', 'dir'))
-        mkdir('results')
-    end
     legend(unique(epitypes))
     savefig(fig, ['results/boxchart_', lower(strrep(label, ' ', '_')), '.fig'])
 end

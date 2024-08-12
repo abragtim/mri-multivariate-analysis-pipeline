@@ -23,12 +23,8 @@ function [meanLesion, stdLesion, medianLesion, ...
     ylabel('Counts (-)')
     legend('Lesion', 'Contralateral healthy region')
 
-    resultsFolder = [metric.PathFolder, '/results'];
-    if(~exist(resultsFolder, 'dir'))
-        mkdir(resultsFolder)
-    end
     hold off;
-    savefig(fig, [resultsFolder, '/hist_', metric.Name, '.fig'])
+    savefig(fig, [metric.PathFolder, '/results', '/hist_', metric.Name, '.fig'])
     close(fig);
 
     %% single-value metrics
