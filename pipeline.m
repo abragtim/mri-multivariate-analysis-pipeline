@@ -61,7 +61,7 @@ end
 %% Transform to MNI. Segment contralateral healthy region in MNI
 for i = 1:length(patients)
     patient = patients{i};
-    spm_transform_to_mni(patient);
+    % todo: remove back spm_transform_to_mni(patient);
 
     patient.BrainmaskSegmentationMNI = metric(['mni_', patient.BrainmaskSegmentation.Name], ...
         patient.BrainmaskSegmentation.PathFolder, ...
@@ -98,6 +98,7 @@ end
 multivariateCoeffsTable = table();
 for i = 1:length(patients)
     patient = patients{i};
+    fprintf("Performing multivariate analysis for patient %s...\n", patient.Name)
 
     brainmaskSegment = logical(patient.BrainmaskSegmentationMNI.get().img);
     lesionSegment = logical(patient.LesionSegmentationMNI.get().img) & brainmaskSegment;
