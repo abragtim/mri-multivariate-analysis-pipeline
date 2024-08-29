@@ -1,4 +1,5 @@
 {
-  "metrics": ["dmean", "fa", "kmean", "kfa"],
+  "metrics": ["dmean", "fa", "kmean", "kfa", 
+              "NODDI_ficvf", "NODDI_fiso", "NODDI_fmin", "NODDI_kappa", "NODDI_odi"],
   "correlation_r_significant_threshold": 0.1
 }
