@@ -12,15 +12,16 @@ classdef patient
         BrainmaskSegmentation metric
         BrainmaskSegmentationMNI metric
 
+        WMSegmentation
+        WMSegmentationMNI
+
+        GMSegmentation
+        GMSegmentationMNI
+
         Metrics cell
         MetricsMNI cell
 
         ContralateralCCAResult ccaResult
-    end
-
-    properties(Access=private)
-        WMSegmentation
-        GMSegmentation
     end
 
     methods

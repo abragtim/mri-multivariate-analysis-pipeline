@@ -4,8 +4,7 @@ settings = readjson("data/settings.json");
 
 patients = {};
 patientsFolders = dir('data/');
-patientsFolders = patientsFolders(~strcmp({patientsFolders.name}, '.') ...
-    & ~strcmp({patientsFolders.name}, '..') ...
+patientsFolders = patientsFolders(~startsWith({patientsFolders.name}, '.') ...
     & ~strcmp({patientsFolders.name}, 'settings.json') ...
     & ~strcmp({patientsFolders.name}, 'example'));
 patientsFoldersCount = length(patientsFolders);
@@ -62,11 +61,17 @@ end
 %% Transform to MNI. Segment contralateral healthy region in MNI
 for i = 1:length(patients)
     patient = patients{i};
-    spm_transform_to_mni(patient);
+    % spm_transform_to_mni(patient);  % comment this if MNI are already computed with SPM
 
     patient.BrainmaskSegmentationMNI = metric(['mni_', patient.BrainmaskSegmentation.Name], ...
         patient.BrainmaskSegmentation.PathFolder, ...
         ['mni_', patient.BrainmaskSegmentation.NiiFilename]);
+    patient.WMSegmentationMNI = metric(['mni_', patient.WMSegmentation.Name], ...
+        patient.WMSegmentation.PathFolder, ...
+        ['mni_', patient.WMSegmentation.NiiFilename]);
+    patient.GMSegmentationMNI = metric(['mni_', patient.GMSegmentation.Name], ...
+        patient.GMSegmentation.PathFolder, ...
+        ['mni_', patient.GMSegmentation.NiiFilename]);
     patient.LesionSegmentationMNI = metric(['mni_', patient.LesionSegmentation.Name], ...
         patient.LesionSegmentation.PathFolder, ...
         ['mni_', patient.LesionSegmentation.NiiFilename]);
@@ -90,9 +95,16 @@ for i = 1:length(patients)
     patients{i} = patient;  % save changes
 end
 
+%% Generate results folder
+if(~exist('./results', 'dir'))
+    mkdir('results')
+end
+
 %% Multivariate analysis with CCA
+multivariateCoeffsTable = table();
 for i = 1:length(patients)
     patient = patients{i};
+    fprintf("Performing multivariate analysis for patient %s...\n", patient.Name)
 
     brainmaskSegment = logical(patient.BrainmaskSegmentationMNI.get().img);
     lesionSegment = logical(patient.LesionSegmentationMNI.get().img) & brainmaskSegment;
@@ -100,9 +112,10 @@ for i = 1:length(patients)
 
     dataForCCA = [];
     for j = 1:length(patient.MetricsMNI)
-        metric = patient.MetricsMNI{j}.get().img;
-        lesioned = metric(lesionSegment);
-        healthy = metric(contralateralSegment);
+        metric = patient.MetricsMNI{j};
+        metricImg = metric.get().img;
+        lesioned = metricImg(lesionSegment);
+        healthy = metricImg(contralateralSegment);
         dataForCCA = [dataForCCA, [lesioned; healthy]];
     end
     labelsForCCA = logical([ones(size(lesioned)); zeros(size(healthy))]);
@@ -112,7 +125,30 @@ for i = 1:length(patients)
 
     patient.ContralateralCCAResult = ccaResult(coeffs, correlation_r);
     patients{i} = patient;  % save changes
+
+
+    % visualize results
+    resultsFolder = [metric.PathFolder, '/results'];
+    if(~exist(resultsFolder, 'dir'))
+        mkdir(resultsFolder)
+    end
+
+    metricNames = cellfun(@(m) ['coeff_', m.Name], patient.MetricsMNI, 'UniformOutput', false);
+    newRow = cell2table([{string(patient.Name)}, num2cell(coeffs)', num2cell(correlation_r)'], ...
+                   'VariableNames', [{'Patient'}, metricNames', {'CorrelationR'}]);
+    multivariateCoeffsTable = [multivariateCoeffsTable; newRow];
+
+    fig = figure('Visible','on');
+    spider_plot(coeffs', 'AxesLimits',...
+        [min(coeffs) .* ones(size(coeffs))'; max(coeffs) .* ones(size(coeffs))'], ...
+        'AxesLabels', cellfun(@(name) strrep(name, '_', ' '), metricNames,...
+        'UniformOutput', false))
+    title(['Contralateral CCA ', patient.Name])
+    savefig(fig, [resultsFolder, '/spider_plot_cca_coeffs.fig'])
+    close(fig);
 end
+disp(multivariateCoeffsTable)
+save('results/multivariateCoeffsTable.mat', 'multivariateCoeffsTable');
 
 %% Calculate and generate new CCA metrics
 ccaMeanResult = calculateCCAmeanResult(patients, settings.correlation_r_significant_threshold);
@@ -143,10 +179,115 @@ for i = 1:length(patients)
 
     ccaMeanPerEpitypeMetric = ccaMeanResultPerEpitype(patient.Epitype)...
         .calculateCombinedMetric(patient.MetricsMNI, patient.BrainmaskSegmentationMNI, ['ccaMean', '_', patient.Epitype]);
-    ccaMeanPerEpitypeMetric.equalize(patient.BrainmaskSegmentationMNI)
+    ccaMeanPerEpitypeMetric.equalize(patient.BrainmaskSegmentationMNI);
+
+    patient.MetricsMNI = [patient.MetricsMNI(:)', ...
+        {ccaMaxCorrMetric}, {ccaMeanMetric}, {ccaMeanPerEpitypeMetric}];
+    patients{i} = patient;  % save changes
 end
 
 %% Univariate analysis
-% todo
+univariateAnalysisTable = table();
+for i = 1:length(patients)
+    patient = patients{i};
+
+    brainmaskSegmentation = logical(patient.BrainmaskSegmentationMNI.get().img);
+    wmSegmentation = logical(patient.WMSegmentationMNI.get().img);
+    gmSegmentation = logical(patient.GMSegmentationMNI.get().img);
+    lesionSegmentation = logical(patient.LesionSegmentationMNI.get().img);
+    contralateralSegmentation = logical(patient.ContralateralHealthySegmentationMNI.get().img);
+
+    for j = 1:length(patient.MetricsMNI)
+        metric = patient.MetricsMNI{j};
+        [meanLesion, stdLesion, medianLesion, ...
+            meanHealthy, stdHealthy, medianHealthy, ...
+            meanHealthyWM, stdHealthyWM, medianHealthyWM, ...
+            meanHealthyGM, stdHealthyGM, medianHealthyGM, ...
+            meanDiff, stdDiff, medianDiff, ...
+            pval, zval, correlationR] = calculateUnivariateStatistics( ...
+            metric, lesionSegmentation, contralateralSegmentation, ...
+            brainmaskSegmentation, wmSegmentation, gmSegmentation);
+
+        newRow = table(string(patient.Name), string(patient.Epitype), ...
+            string(metric.Name), meanLesion, stdLesion, medianLesion, ...
+            meanHealthy, stdHealthy, medianHealthy, ...
+            meanHealthyWM, stdHealthyWM, medianHealthyWM, ...
+            meanHealthyGM, stdHealthyGM, medianHealthyGM, ...
+            meanDiff, stdDiff, medianDiff,...
+            pval, zval, correlationR, ...
+            'VariableNames', {'Patient', 'Epitype', 'Metric', 'MeanLesion', 'StdLesion', 'MedianLesion', ...
+            'MeanHealthy', 'StdHealthy', 'MedianHealthy', ...
+            'MeanHealthyWM', 'StdHealthyWM', 'MedianHealthyWM', ...
+            'MeanHealthyGM', 'StdHealthyGM', 'MedianHealthyGM', ...
+            'MeanPercentageDiff', 'StdPercentageDiff', 'MedianPercentageDiff',...
+            'PValue', 'ZValue', 'CorrelationR'});
+        univariateAnalysisTable = [univariateAnalysisTable; newRow];
+    end
+end
+disp(univariateAnalysisTable)
+save('results/univariateAnalysisTable.mat', 'univariateAnalysisTable');
+
+%% Visualize univariate statistics
+function [] = saveBoxchart(metrics, values, epitypes, label)
+    fig = figure('Visible','on');
+    epitypes = categorical(strrep(epitypes, '_', ' '));
+    boxchart(categorical(strrep(metrics, '_', ' ')), values, ...
+        'GroupByColor', epitypes);
+    ylabel(label)
+    legend(unique(epitypes))
+    savefig(fig, ['results/boxchart_', lower(strrep(label, ' ', '_')), '.fig'])
+    close(fig);
+end
+
+function [] = saveMedianBoxchartForMetric(metric, univariateAnalysisTable)
+    metricTable = univariateAnalysisTable(univariateAnalysisTable.Metric == metric, :);
+    labelsForMedians = [repmat("Lesion", length(metricTable.MedianLesion), 1); ...
+                        repmat("Healthy", length(metricTable.MedianHealthy), 1); ...
+                        repmat("Healthy WM", length(metricTable.MedianHealthyWM), 1); ...
+                        repmat("Healthy GM", length(metricTable.MedianHealthyGM), 1)];
+    medians = [metricTable.MedianLesion;
+           metricTable.MedianHealthy;
+           metricTable.MedianHealthyWM;
+           metricTable.MedianHealthyGM];
+    epitypes = [metricTable.Epitype; metricTable.Epitype;
+            metricTable.Epitype; metricTable.Epitype];
+    label = strrep(metric, 'mni_', '');
+    label = strrep(label, '_', ' ');
+    label = sprintf('Median for %s', label);
+    saveBoxchart(labelsForMedians, medians, epitypes, label)
+end
+
+saveBoxchart(univariateAnalysisTable.Metric,...
+    univariateAnalysisTable.PValue,...
+    univariateAnalysisTable.Epitype, ...
+    'p-value');
+saveBoxchart(univariateAnalysisTable.Metric,...
+    univariateAnalysisTable.CorrelationR,...
+    univariateAnalysisTable.Epitype, ...
+    'Correlation R');
+saveBoxchart(univariateAnalysisTable.Metric,...
+    univariateAnalysisTable.MeanPercentageDiff,...
+    univariateAnalysisTable.Epitype, ...
+    'Mean percentage difference');
+saveBoxchart(univariateAnalysisTable.Metric,...
+    univariateAnalysisTable.StdPercentageDiff,...
+    univariateAnalysisTable.Epitype, ...
+    'SD percentage difference');
+saveBoxchart(univariateAnalysisTable.Metric,...
+    univariateAnalysisTable.MedianPercentageDiff,...
+    univariateAnalysisTable.Epitype, ...
+    'Median percentage difference');
+
+saveMedianBoxchartForMetric('mni_dmean', univariateAnalysisTable);
+saveMedianBoxchartForMetric('mni_fa', univariateAnalysisTable);
+saveMedianBoxchartForMetric('mni_kmean', univariateAnalysisTable);
+saveMedianBoxchartForMetric('mni_kfa', univariateAnalysisTable);
+saveMedianBoxchartForMetric('mni_dmean', univariateAnalysisTable);
+
+saveMedianBoxchartForMetric('mni_NODDI_ficvf', univariateAnalysisTable);
+saveMedianBoxchartForMetric('mni_NODDI_fiso', univariateAnalysisTable);
+saveMedianBoxchartForMetric('mni_NODDI_fmin', univariateAnalysisTable);
+saveMedianBoxchartForMetric('mni_NODDI_kappa', univariateAnalysisTable);
+saveMedianBoxchartForMetric('mni_NODDI_odi', univariateAnalysisTable);
 
 fprintf('Completed successfully!\n')
