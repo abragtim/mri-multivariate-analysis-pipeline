@@ -1,12 +1,17 @@
 function [meanLesion, stdLesion, medianLesion, ...
     meanContralateralHealthy, stdContralateralHealthy, medianContralateralHealthy,...
+    meanContralateralHealthyWM, stdContralateralHealthyWM, medianContralateralHealthyWM,...
+    meanContralateralHealthyGM, stdContralateralHealthyGM, medianContralateralHealthyGM,...
     meanPercentageDiff, stdPercentageDiff, medianPercentageDiff,...
     pval, zval, correlationR] ...
-    = calculateUnivariateStatistics(metric, lesionSegmentation, contralateralSegmentation)
+    = calculateUnivariateStatistics(metric, lesionSegmentation, contralateralSegmentation, ...
+                                    brainmask, wmSegmentation, gmSegmentation)
 
     volume = metric.get().img;
-    lesion = volume(lesionSegmentation);
-    healthy = volume(contralateralSegmentation);
+    lesion = volume(lesionSegmentation & brainmask);
+    healthy = volume(contralateralSegmentation & brainmask);
+    healthyWM = volume(contralateralSegmentation & wmSegmentation);
+    healthyGM = volume(contralateralSegmentation & gmSegmentation);
 
     %% U - test
     [pval, ~, stats] = ranksum(lesion, healthy);
@@ -35,6 +40,14 @@ function [meanLesion, stdLesion, medianLesion, ...
     meanContralateralHealthy = mean(healthy);
     medianContralateralHealthy = median(healthy);
     stdContralateralHealthy = std(healthy);
+
+    meanContralateralHealthyWM = mean(healthyWM);
+    medianContralateralHealthyWM = median(healthyWM);
+    stdContralateralHealthyWM = std(healthyWM);
+
+    meanContralateralHealthyGM = mean(healthyGM);
+    medianContralateralHealthyGM = median(healthyGM);
+    stdContralateralHealthyGM = std(healthyGM);
 
     meanPercentageDiff = (meanLesion - meanContralateralHealthy) / meanContralateralHealthy * 100;
     medianPercentageDiff = (medianLesion - medianContralateralHealthy) / medianContralateralHealthy * 100;
