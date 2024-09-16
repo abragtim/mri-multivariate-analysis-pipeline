@@ -61,7 +61,7 @@ end
 %% Transform to MNI. Segment contralateral healthy region in MNI
 for i = 1:length(patients)
     patient = patients{i};
-    spm_transform_to_mni(patient);  % comment this if MNIs are already computed with SPM
+    % spm_transform_to_mni(patient);  % comment this if MNI are already computed with SPM
 
     patient.BrainmaskSegmentationMNI = metric(['mni_', patient.BrainmaskSegmentation.Name], ...
         patient.BrainmaskSegmentation.PathFolder, ...
@@ -145,6 +145,7 @@ for i = 1:length(patients)
         'UniformOutput', false))
     title(['Contralateral CCA ', patient.Name])
     savefig(fig, [resultsFolder, '/spider_plot_cca_coeffs.fig'])
+    close(fig);
 end
 disp(multivariateCoeffsTable)
 save('results/multivariateCoeffsTable.mat', 'multivariateCoeffsTable');
@@ -178,7 +179,7 @@ for i = 1:length(patients)
 
     ccaMeanPerEpitypeMetric = ccaMeanResultPerEpitype(patient.Epitype)...
         .calculateCombinedMetric(patient.MetricsMNI, patient.BrainmaskSegmentationMNI, ['ccaMean', '_', patient.Epitype]);
-    ccaMeanPerEpitypeMetric.equalize(patient.BrainmaskSegmentationMNI)
+    ccaMeanPerEpitypeMetric.equalize(patient.BrainmaskSegmentationMNI);
 
     patient.MetricsMNI = [patient.MetricsMNI(:)', ...
         {ccaMaxCorrMetric}, {ccaMeanMetric}, {ccaMeanPerEpitypeMetric}];
@@ -204,8 +205,8 @@ for i = 1:length(patients)
             meanHealthyGM, stdHealthyGM, medianHealthyGM, ...
             meanDiff, stdDiff, medianDiff, ...
             pval, zval, correlationR] = calculateUnivariateStatistics( ...
-            metric, lesionSegmentation & brainmaskSegmentation, ...
-            contralateralSegmentation & brainmaskSegmentation);
+            metric, lesionSegmentation, contralateralSegmentation, ...
+            brainmaskSegmentation, wmSegmentation, gmSegmentation);
 
         newRow = table(string(patient.Name), string(patient.Epitype), ...
             string(metric.Name), meanLesion, stdLesion, medianLesion, ...
@@ -226,7 +227,7 @@ end
 disp(univariateAnalysisTable)
 save('results/univariateAnalysisTable.mat', 'univariateAnalysisTable');
 
-% visualize
+%% Visualize univariate statistics
 function [] = saveBoxchart(metrics, values, epitypes, label)
     fig = figure('Visible','on');
     epitypes = categorical(strrep(epitypes, '_', ' '));
@@ -235,6 +236,25 @@ function [] = saveBoxchart(metrics, values, epitypes, label)
     ylabel(label)
     legend(unique(epitypes))
     savefig(fig, ['results/boxchart_', lower(strrep(label, ' ', '_')), '.fig'])
+    close(fig);
+end
+
+function [] = saveMedianBoxchartForMetric(metric, univariateAnalysisTable)
+    metricTable = univariateAnalysisTable(univariateAnalysisTable.Metric == metric, :);
+    labelsForMedians = [repmat("Lesion", length(metricTable.MedianLesion), 1); ...
+                        repmat("Healthy", length(metricTable.MedianHealthy), 1); ...
+                        repmat("Healthy WM", length(metricTable.MedianHealthyWM), 1); ...
+                        repmat("Healthy GM", length(metricTable.MedianHealthyGM), 1)];
+    medians = [metricTable.MedianLesion;
+           metricTable.MedianHealthy;
+           metricTable.MedianHealthyWM;
+           metricTable.MedianHealthyGM];
+    epitypes = [metricTable.Epitype; metricTable.Epitype;
+            metricTable.Epitype; metricTable.Epitype];
+    label = strrep(metric, 'mni_', '');
+    label = strrep(label, '_', ' ');
+    label = sprintf('Median for %s', label);
+    saveBoxchart(labelsForMedians, medians, epitypes, label)
 end
 
 saveBoxchart(univariateAnalysisTable.Metric,...
@@ -257,5 +277,17 @@ saveBoxchart(univariateAnalysisTable.Metric,...
     univariateAnalysisTable.MedianPercentageDiff,...
     univariateAnalysisTable.Epitype, ...
     'Median percentage difference');
+
+saveMedianBoxchartForMetric('mni_dmean', univariateAnalysisTable);
+saveMedianBoxchartForMetric('mni_fa', univariateAnalysisTable);
+saveMedianBoxchartForMetric('mni_kmean', univariateAnalysisTable);
+saveMedianBoxchartForMetric('mni_kfa', univariateAnalysisTable);
+saveMedianBoxchartForMetric('mni_dmean', univariateAnalysisTable);
+
+saveMedianBoxchartForMetric('mni_NODDI_ficvf', univariateAnalysisTable);
+saveMedianBoxchartForMetric('mni_NODDI_fiso', univariateAnalysisTable);
+saveMedianBoxchartForMetric('mni_NODDI_fmin', univariateAnalysisTable);
+saveMedianBoxchartForMetric('mni_NODDI_kappa', univariateAnalysisTable);
+saveMedianBoxchartForMetric('mni_NODDI_odi', univariateAnalysisTable);
 
 fprintf('Completed successfully!\n')
