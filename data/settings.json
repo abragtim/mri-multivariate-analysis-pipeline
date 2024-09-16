@@ -1,5 +1,6 @@
 {
   "metrics": ["dmean", "fa", "kmean", "kfa", 
-              "NODDI_ficvf", "NODDI_fiso", "NODDI_fmin", "NODDI_kappa", "NODDI_odi"],
+              "NODDI_ficvf", "NODDI_fiso", "NODDI_fmin", "NODDI_kappa", "NODDI_odi",
+              "fcd_vox_absmax", "fd_vox_absmax", "log_fc_vox_absmax"],
   "correlation_r_significant_threshold": 0.1
 }
