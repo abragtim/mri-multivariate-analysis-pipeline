@@ -24,12 +24,7 @@ classdef ccaResult
             combinedMetricImg = sum(bsxfun(@times, metricsSegments, reshape(obj.Coefficients, 1, 1, 1, length(obj.Coefficients))), 4);
             combinedMetricImg = combinedMetricImg ./ norm(obj.Coefficients);
 
-            % windowing
-            p99 = prctile(combinedMetricImg(brainmaskSegment), 99);
-            p1 = prctile(combinedMetricImg(brainmaskSegment), 1);
-            combinedMetricImg(brainmaskSegment & combinedMetricImg < p1) = p1;
-            combinedMetricImg(brainmaskSegment & combinedMetricImg > p99) = p99;
-            combinedMetricImg(~brainmaskSegment) = min(combinedMetricImg(brainmaskSegment), [], 'all');
+            combinedMetricImg = applyWindowing(combinedMetricImg, brainmaskSegment, 1, 99);
 
             combinedMetricNii = metrics{1}.get();
             combinedMetricNii.img = combinedMetricImg;
