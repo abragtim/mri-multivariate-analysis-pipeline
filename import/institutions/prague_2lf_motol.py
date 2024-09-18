@@ -22,6 +22,9 @@ def import_patients(input_folder, target_folder):
         'rNODDI__fmin.nii': 'NODDI_fmin.nii',
         'rNODDI__kappa.nii': 'NODDI_kappa.nii',
         'rNODDI__odi.nii': 'NODDI_odi.nii',
+        'r32_fd_Vox_absmax_PatSpace.nii': 'fd_vox_absmax.nii',
+        'r32_fdc_Vox_absmax_PatSpace.nii': 'fdc_vox_absmax.nii',
+        'r32_log_fc_Vox_absmax_PatSpace.nii': 'log_fc_vox_absmax.nii',
         'c1rT1.nii': 'GMSegmentation.nii',
         'c2rT1.nii': 'WMSegmentation.nii',
         'Segmentation-T1W-label.nii': 'lesionSegmentation.nii',
@@ -49,6 +52,9 @@ def import_patients(input_folder, target_folder):
 
     patients = os.listdir(input_folder)
     for patient in patients:
+        if patient.startswith('._'):
+            continue
+
         logger.info(f'Importing patient {patient}...')
         patient_input_path, patient_target_path = _get_patient_paths(patient, input_folder,
                                                                      target_folder)
@@ -56,6 +62,9 @@ def import_patients(input_folder, target_folder):
         expected_files = set(filenames_map.values())
         for root, _, files in os.walk(patient_input_path):
             for file in files:
+                if file.startswith('._'):
+                    continue
+
                 file_input_path = Path(f'{root}/{file}')
                 if file.endswith('.gz'):
                     file_input_path = _extract_and_delete_gzip(str(file_input_path))
