@@ -122,6 +122,7 @@ for i = 1:length(patients)
 
     dataNormalizedCCA = zscore(dataForCCA, 0, 1);
     [coeffs, ~, correlation_r, ~, ~] = canoncorr(dataNormalizedCCA, labelsForCCA);
+    coeffs = coeffs / norm(coeffs);
 
     patient.ContralateralCCAResult = ccaResult(coeffs, correlation_r);
     patients{i} = patient;  % save changes
@@ -142,9 +143,9 @@ for i = 1:length(patients)
     spider_plot(coeffs', 'AxesLimits',...
         [min(coeffs) .* ones(size(coeffs))'; max(coeffs) .* ones(size(coeffs))'], ...
         'AxesLabels', cellfun(@(name) strrep(name, '_', ' '), metricNames,...
-        'UniformOutput', false))
-    title(['Contralateral CCA ', patient.Name])
-    savefig(fig, [resultsFolder, '/spider_plot_cca_coeffs.fig'])
+        'UniformOutput', false));
+    title(['Contralateral CCA ', patient.Name]);
+    savefig(fig, [resultsFolder, '/spider_plot_cca_coeffs.fig']);
     close(fig);
 end
 disp(multivariateCoeffsTable)
@@ -198,6 +199,10 @@ for i = 1:length(patients)
     contralateralSegmentation = logical(patient.ContralateralHealthySegmentationMNI.get().img);
 
     for j = 1:length(patient.MetricsMNI)
+        if (patient.Name == '2294435')
+            continue;  % todo: nevim proc nefunguje a je tam spoustu NaN
+        end
+
         metric = patient.MetricsMNI{j};
         [meanLesion, stdLesion, medianLesion, ...
             meanHealthy, stdHealthy, medianHealthy, ...
