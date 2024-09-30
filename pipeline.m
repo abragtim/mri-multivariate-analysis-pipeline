@@ -295,4 +295,10 @@ saveMedianBoxchartForMetric('mni_NODDI_fmin', univariateAnalysisTable);
 saveMedianBoxchartForMetric('mni_NODDI_kappa', univariateAnalysisTable);
 saveMedianBoxchartForMetric('mni_NODDI_odi', univariateAnalysisTable);
 
+%% Transform new metrics to patient space
+for i = 1:length(patients)
+    patient = patients{i};
+    spm_transform_to_patspace(patient);
+end
+
 fprintf('Completed successfully!\n')
