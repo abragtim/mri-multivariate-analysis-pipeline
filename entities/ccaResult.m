@@ -22,9 +22,9 @@ classdef ccaResult
 
             metricsSegments = cat(4, brainmaskedNormalized{:});
             combinedMetricImg = sum(bsxfun(@times, metricsSegments, reshape(obj.Coefficients, 1, 1, 1, length(obj.Coefficients))), 4);
-            combinedMetricImg = combinedMetricImg ./ norm(obj.Coefficients);
-
-            combinedMetricImg = applyWindowing(combinedMetricImg, brainmaskSegment, 1, 99);
+            combinedMetricImg(~brainmaskSegment) = min( ...
+                combinedMetricImg(brainmaskSegment), [], 'all');
+            combinedMetricImg = mat2gray(combinedMetricImg);
 
             combinedMetricNii = metrics{1}.get();
             combinedMetricNii.img = combinedMetricImg;
