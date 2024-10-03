@@ -199,10 +199,6 @@ for i = 1:length(patients)
     contralateralSegmentation = logical(patient.ContralateralHealthySegmentationMNI.get().img);
 
     for j = 1:length(patient.MetricsMNI)
-        if (patient.Name == '2294435')
-            continue;  % todo: nevim proc nefunguje a je tam spoustu NaN
-        end
-
         metric = patient.MetricsMNI{j};
         [meanLesion, stdLesion, medianLesion, ...
             meanHealthy, stdHealthy, medianHealthy, ...

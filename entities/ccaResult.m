@@ -17,7 +17,8 @@ classdef ccaResult
             for i=1:length(metrics)
                 metricImg = metrics{i}.get().img;
                 brainmaskedNormalized{i} = metricImg;
-                brainmaskedNormalized{i}(brainmaskSegment) = zscore(metricImg(brainmaskSegment));
+                brainmaskAndNotNaN = brainmaskSegment & ~isnan(metricImg);
+                brainmaskedNormalized{i}(brainmaskAndNotNaN) = zscore(metricImg(brainmaskAndNotNaN));
             end
 
             metricsSegments = cat(4, brainmaskedNormalized{:});
