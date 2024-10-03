@@ -23,7 +23,7 @@ def import_patients(input_folder, target_folder):
         'rNODDI__kappa.nii': 'NODDI_kappa.nii',
         'rNODDI__odi.nii': 'NODDI_odi.nii',
         'r32_fd_Vox_absmax_PatSpace.nii': 'fd_vox_absmax.nii',
-        'r32_fdc_Vox_absmax_PatSpace.nii': 'fdc_vox_absmax.nii',
+        'r32_fdc_Vox_absmax_PatSpace.nii': 'fcd_vox_absmax.nii',
         'r32_log_fc_Vox_absmax_PatSpace.nii': 'log_fc_vox_absmax.nii',
         'c1rT1.nii': 'GMSegmentation.nii',
         'c2rT1.nii': 'WMSegmentation.nii',
@@ -52,7 +52,7 @@ def import_patients(input_folder, target_folder):
 
     patients = os.listdir(input_folder)
     for patient in patients:
-        if patient.startswith('._'):
+        if patient.startswith('.'):
             continue
 
         logger.info(f'Importing patient {patient}...')
