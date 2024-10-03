@@ -13,11 +13,19 @@ classdef ccaResult
         function combinedMetric = calculateCombinedMetric(obj, metrics, brainmask, metricName)
             brainmaskSegment = logical(brainmask.get().img);
             
-            metricsSegments = cellfun(@(m) m.get().img, ...
-                metrics, 'UniformOutput',false);
-            metricsSegments = cat(4, metricsSegments{:});
-            metricsSegments(brainmaskSegment) = zscore(metricsSegments(brainmaskSegment), 0, 4);
+            brainmaskedNormalized = cell(size(metrics));
+            for i=1:length(metrics)
+                metricImg = metrics{i}.get().img;
+                brainmaskedNormalized{i} = metricImg;
+                brainmaskAndNotNaN = brainmaskSegment & ~isnan(metricImg);
+                brainmaskedNormalized{i}(brainmaskAndNotNaN) = zscore(metricImg(brainmaskAndNotNaN));
+            end
+
+            metricsSegments = cat(4, brainmaskedNormalized{:});
             combinedMetricImg = sum(bsxfun(@times, metricsSegments, reshape(obj.Coefficients, 1, 1, 1, length(obj.Coefficients))), 4);
+            combinedMetricImg(~brainmaskSegment) = min( ...
+                combinedMetricImg(brainmaskSegment), [], 'all');
+            combinedMetricImg = mat2gray(combinedMetricImg);
 
             combinedMetricNii = metrics{1}.get();
             combinedMetricNii.img = combinedMetricImg;

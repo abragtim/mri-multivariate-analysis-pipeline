@@ -33,7 +33,7 @@ classdef metric
             brainmaskSegment = logical(brainmask.get().img);
             originalNii = obj.get();
             equalizedNii = originalNii;
-            equalizedNii.img(brainmaskSegment) = histeq(originalNii.img(brainmaskSegment));
+            equalizedNii.img(brainmaskSegment) = histeq(originalNii.img(brainmaskSegment), 256);
 
             equalized = metric([obj.Name, '_equalized'], obj.PathFolder, [obj.NiiFilename, '_equalized']);
             equalized.save(equalizedNii);

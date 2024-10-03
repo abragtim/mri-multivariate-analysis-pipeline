@@ -122,6 +122,7 @@ for i = 1:length(patients)
 
     dataNormalizedCCA = zscore(dataForCCA, 0, 1);
     [coeffs, ~, correlation_r, ~, ~] = canoncorr(dataNormalizedCCA, labelsForCCA);
+    coeffs = coeffs / norm(coeffs);
 
     patient.ContralateralCCAResult = ccaResult(coeffs, correlation_r);
     patients{i} = patient;  % save changes
@@ -142,9 +143,9 @@ for i = 1:length(patients)
     spider_plot(coeffs', 'AxesLimits',...
         [min(coeffs) .* ones(size(coeffs))'; max(coeffs) .* ones(size(coeffs))'], ...
         'AxesLabels', cellfun(@(name) strrep(name, '_', ' '), metricNames,...
-        'UniformOutput', false))
-    title(['Contralateral CCA ', patient.Name])
-    savefig(fig, [resultsFolder, '/spider_plot_cca_coeffs.fig'])
+        'UniformOutput', false));
+    title(['Contralateral CCA ', patient.Name]);
+    savefig(fig, [resultsFolder, '/spider_plot_cca_coeffs.fig']);
     close(fig);
 end
 disp(multivariateCoeffsTable)
@@ -289,5 +290,11 @@ saveMedianBoxchartForMetric('mni_NODDI_fiso', univariateAnalysisTable);
 saveMedianBoxchartForMetric('mni_NODDI_fmin', univariateAnalysisTable);
 saveMedianBoxchartForMetric('mni_NODDI_kappa', univariateAnalysisTable);
 saveMedianBoxchartForMetric('mni_NODDI_odi', univariateAnalysisTable);
+
+%% Transform new metrics to patient space
+for i = 1:length(patients)
+    patient = patients{i};
+    spm_transform_to_patspace(patient);
+end
 
 fprintf('Completed successfully!\n')
