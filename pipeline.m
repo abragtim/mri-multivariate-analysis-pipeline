@@ -120,9 +120,37 @@ for i = 1:length(patients)
     end
     labelsForCCA = logical([ones(size(lesioned)); zeros(size(healthy))]);
 
-    dataNormalizedCCA = zscore(dataForCCA, 0, 1);
-    [coeffs, ~, correlation_r, ~, ~] = canoncorr(dataNormalizedCCA, labelsForCCA);
-    coeffs = coeffs / norm(coeffs);
+    % Check if we have sufficient data for CCA
+    if size(dataForCCA, 1) < 2 || size(dataForCCA, 2) < 1
+        fprintf('Warning: Insufficient data for CCA analysis for patient %s. Using default coefficients.\n', patient.Name);
+        coeffs = ones(size(dataForCCA, 2), 1) / sqrt(size(dataForCCA, 2));
+        correlation_r = 0;
+    else
+        dataNormalizedCCA = zscore(dataForCCA, 0, 1);
+        
+        % Handle case where zscore produces NaN (constant data)
+        if any(isnan(dataNormalizedCCA(:)))
+            fprintf('Warning: Data normalization produced NaN for patient %s. Using raw data.\n', patient.Name);
+            dataNormalizedCCA = dataForCCA;
+        end
+        
+        try
+            [coeffs, ~, correlation_r, ~, ~] = canoncorr(dataNormalizedCCA, labelsForCCA);
+            
+            % Handle case where canoncorr fails or returns empty results
+            if isempty(coeffs) || any(isnan(coeffs))
+                fprintf('Warning: CCA failed for patient %s. Using default coefficients.\n', patient.Name);
+                coeffs = ones(size(dataForCCA, 2), 1) / sqrt(size(dataForCCA, 2));
+                correlation_r = 0;
+            else
+                coeffs = coeffs / norm(coeffs);
+            end
+        catch ME
+            fprintf('Warning: CCA analysis failed for patient %s: %s. Using default coefficients.\n', patient.Name, ME.message);
+            coeffs = ones(size(dataForCCA, 2), 1) / sqrt(size(dataForCCA, 2));
+            correlation_r = 0;
+        end
+    end
 
     patient.ContralateralCCAResult = ccaResult(coeffs, correlation_r);
     patients{i} = patient;  % save changes
@@ -140,8 +168,19 @@ for i = 1:length(patients)
     multivariateCoeffsTable = [multivariateCoeffsTable; newRow];
 
     fig = figure('Visible','on');
+    
+    % Handle edge case where all coefficients are the same
+    minCoeff = min(coeffs);
+    maxCoeff = max(coeffs);
+    if minCoeff == maxCoeff
+        % Add small margin for visualization
+        margin = abs(minCoeff) * 0.1 + 0.01;  % 10% margin or minimum 0.01
+        minCoeff = minCoeff - margin;
+        maxCoeff = maxCoeff + margin;
+    end
+    
     spider_plot(coeffs', 'AxesLimits',...
-        [min(coeffs) .* ones(size(coeffs))'; max(coeffs) .* ones(size(coeffs))'], ...
+        [minCoeff .* ones(size(coeffs))'; maxCoeff .* ones(size(coeffs))'], ...
         'AxesLabels', cellfun(@(name) strrep(name, '_', ' '), metricNames,...
         'UniformOutput', false));
     title(['Contralateral CCA ', patient.Name]);
